@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Advanced Dijkstra</title>
+  <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+  <style>
+    body {
+      background-color: #1e1e2f;
+      color: #eee;
+      font-family: "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+
+    h1 {
+      text-align: center;
+      padding: 20px;
+      margin: 0;
+      background-color: #282c34;
+      color: #61dafb;
+    }
+
+    #controls {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      padding: 15px;
+      background-color: #222;
+      flex-wrap: wrap;
+    }
+
+    input, button, select {
+      padding: 8px;
+      font-size: 14px;
+      border-radius: 5px;
+      border: none;
+    }
+
+    button {
+      background-color: #61dafb;
+      color: #000;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #21a1f1;
+    }
+
+    #network {
+      height: 80vh;
+      margin: 0 20px;
+      border: 2px solid #444;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Dijkstra Visualizer</h1>
+
+  <div id="controls">
+    <input id="from" placeholder="From node (e.g. A)" />
+    <input id="to" placeholder="To node (e.g. B)" />
+    <input id="weight" placeholder="Weight (e.g. 5)" type="number" />
+    <button onclick="addEdge()">Add Edge</button>
+
+    <select id="source">
+      <option disabled selected>Source Node</option>
+    </select>
+    <button onclick="runDijkstra()">Run Dijkstra</button>
+    <button onclick="resetGraph()">Reset</button>
+  </div>
+
+  <div id="network"></div>
+
+  <script>
+    const container = document.getElementById("network");
+    const nodes = new vis.DataSet();
+    const edges = new vis.DataSet();
+    const network = new vis.Network(container, { nodes, edges }, {
+      nodes: {
+        color: { background: "#61dafb", border: "#ffffff" },
+        font: { color: "#000" }
+      },
+      edges: {
+        color: { color: "#aaa" },
+        font: { color: "#eee", align: "top" }
+      },
+      physics: {
+        stabilization: false
+      },
+      interaction: { hover: true }
+    });
+
+    let graph = {}; // Adjacency list
+
+    function addNode(id) {
+      if (!nodes.get(id)) {
+        nodes.add({ id, label: id });
+        graph[id] = {};
+        const sourceSelect = document.getElementById("source");
+        const option = new Option(id, id);
+        sourceSelect.add(option);
+      }
+    }
+
+    function addEdge() {
+      const from = document.getElementById("from").value.trim();
+      const to = document.getElementById("to").value.trim();
+      const weight = parseFloat(document.getElementById("weight").value);
+
+      if (from && to && !isNaN(weight)) {
+        addNode(from);
+        addNode(to);
+        edges.add({ from, to, label: String(weight), arrows: "to" });
+        graph[from][to] = weight;
+      }
+    }
+
+    function resetGraph() {
+      nodes.clear();
+      edges.clear();
+      graph = {};
+      document.getElementById("source").innerHTML =
+        '<option disabled selected>Source Node</option>';
+    }
+
+    function runDijkstra() {
+      const source = document.getElementById("source").value;
+      if (!source || !graph[source]) return alert("Select a valid source node");
+
+      const dist = {};
+      const prev = {};
+      const pq = new MinPriorityQueue();
+
+      for (let node of Object.keys(graph)) {
+        dist[node] = Infinity;
+        prev[node] = null;
+      }
+      dist[source] = 0;
+      pq.enqueue(source, 0);
+
+      while (!pq.isEmpty()) {
+        const { element: u } = pq.dequeue();
+
+        for (let neighbor in graph[u]) {
+          const alt = dist[u] + graph[u][neighbor];
+          if (alt < dist[neighbor]) {
+            dist[neighbor] = alt;
+            prev[neighbor] = u;
+            pq.enqueue(neighbor, alt);
+          }
+        }
+      }
+
+      highlightShortestPaths(prev, source);
+    }
+
+    function highlightShortestPaths(prev, source) {
+      const usedEdges = new Set();
+      for (let node in prev) {
+        let current = node;
+        while (prev[current]) {
+          const from = prev[current];
+          const to = current;
+          usedEdges.add(`${from}->${to}`);
+          current = from;
+        }
+      }
+
+      edges.forEach((edge) => {
+        const key = `${edge.from}->${edge.to}`;
+        if (usedEdges.has(key)) {
+          edges.update({ id: edge.id || edge.from + "_" + edge.to, color: { color: "#00ff88" } });
+        } else {
+          edges.update({ id: edge.id || edge.from + "_" + edge.to, color: { color: "#555" } });
+        }
+      });
+    }
+
+    class MinPriorityQueue {
+      constructor() {
+        this.items = [];
+      }
+
+      enqueue(element, priority) {
+        this.items.push({ element, priority });
+        this.items.sort((a, b) => a.priority - b.priority);
+      }
+
+      dequeue() {
+        return this.items.shift();
+      }
+
+      isEmpty() {
+        return this.items.length === 0;
+      }
+    }
+  </script>
+</body>
+</html>
+
+
